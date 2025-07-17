@@ -1,3 +1,3 @@
 # SJWISFE-Auto-car
 The New and Improved.
-For Read me text head to "red me" File
+For Technical Report Either Visit "red me.txt" or "Technical Report" File
