@@ -1,0 +1,71 @@
+FUTURE ENGINEERS | AI-STEAM SELF DRIVING CAR | "ATA 4.0"
+
+	Our robot is a 4th generational autonomous driving car made using Lego technics for the base, and Nashenbot's AIsteam for its hardware. Its modules consist of two cameras, a sound emitting module, and a light emitting module; both modules are used for debugging purposes. As for the cameras, they are referred to as "Top Camera", and "Front Camera". The overall structure of the robot is designed by us, Team Stallions, with many iterations and prototypes being made. The hardware and sensors used are as follows: 
+
+* 1 - Controller
+* 2 - Cameras (Top and Front)
+* 3 - Motors (Two used for driving base; One continuous motor and one servo motor, one used for the "Moving camera system")
+* 2 - Debugging modules(One light emitting, One Sound emitting)
+
+	Our design plan is to make the robot as compact as possible with the used hardware, so that it can move through obstacles efficiently. Hence our design choice of small wheels. As for the purpose of the cameras; the Top camera is used for wall detection, counting detection, and a timer, while the Front is used for Color detecting and following. The Top camera is tilted at ~45 degrees, and is connected to a motor which sets the angle direction of the top camera, typically ~30-45 degrees of left or right. The Front camera is fixed at the front direction and at a straight angle.
+
+	How our robot works is that the top camera acts as a "distance sensor" for the walls. How we are able to do this is by the use of an "Angled camera", where in it has a limited vision. Whenever it detects the wall, it will immediately does a counter angle to avoid it. The top camera also acts as a counter; whenever it detects blue or orange, it would count. As well as a real-time counter. Refer to SensorChange.txt and the Time process variables for more information
+	
+	The front camera detects the center X and Y, and the pixel number of Red and Green blocks. Whenever it detects Red or green, it will preform a "following" algorithm, and when it reaches a certain range, it will move to a set direction depending on the color of the block 
+
+	As for our strategy, our robot's setup will consist of angle setups and direction sensing. The robot's goal for open challenge is to find out whether it is moving clockwise or counter clockwise, and to move to the inner wall. Normally, the robot's camera will move at 45 degrees to its left. The robot's camera angle wont change in a counter clockwise direction, and thus will move into the inner wall and avoiding it at the same time. However, during a clockwise direction, the robot would go to the Outerwall in its initial state. But once it knows its direction, it will then move the camera at the opposite direction, as well as going towards the inner wall. Where it will do 12 counts, one for each blue/orange line, and stop at its starting position.
+
+	As for our obstacle challenge, its goal is mostly the same with the added addition of following reds and greens until at a certain point. When it is at that certain point, the robot, as well as the camera, moves at their apparent direction; Green means left, red means right. For the parking, we decided that we would start at the parking lot. As for our endgame, either we would do the less risky route; non-parallel parking, or the more risky route; parallel parking. It depends on how well we did at our first round in obstacle challenge.
+
+	Before the round starts, our immediate action is to find the thresholds of Blue, Red, Green, Orange, and black, and adjusting the sensitivity; How much Pixel Number should it preform a specific action. This part of our strategy is the most essential because of how our
+
+The source code consist of the following:
+
+* Initial/Setup codes
+	- Variables
+	- Thresholds
+	- Motor speed setup
+	- Servo Angle setup
+
+* PHASE 1
+	- Direction setup
+	- Camera Angle setup
+
+* PHASE 2
+	- Counting
+	- Turning / Color detection [Color detection is not used for Open challenge]
+	- Time Process 1,2,3
+	- Steering Angle/Cam Angle
+	- Display
+
+	Our initial and setup codes, as the names apply, sets up the robots essential variables, speed, angles, and thresholds of the robot. The variables used are many, but we will explain the more essential parts of it in detail. Starting with:
+
+* ReferenceValueEDTA 
+	- is a rational continuous reference number that is used for the camera angle module to accurately and efficiently signal angles for the encoder motor since the motor 			does not have its own build-in angle value
+
+* Time Process 1-3
+	- is a continuous timer that is used to elongate specific functions or to run specific functions after a certain amount of time without the use of AIcode's Wait function. The timer 	value is taken from our cameras. For the source code of the cameras, refer to "Sensor Change" notepad file 
+
+* CameraAngleState & InOutMode
+	- Tells the robot what camera angle should it move, and what direction should it go. These values change at least once on open challenge, and constantly on obstacle challenge.
+
+* DEBUGMODE55
+	- Are a set of values used for debug mode. These are used to find thresholds without the use of a computer. This is not used during rounds
+
+
+	Phase 1 helps the robot's sense of direction. Which, as mentioned in our strategy plan, makes it so that it would move to the inner wall on any direction. Phase 2 however is where the magic happens. It consist of 5 modules. Each with its own purpose. These five are:
+
+* Steering angle
+	- is the constantly updating camera angle. Whenever the CameraAngleState is changed, it stops the robot, turns to its appropriate angle, and moves again.
+
+* Time Result
+	- because of how the timer of our camera works, it starts before the robot actually runs. To reduce errors, we use this variables so that the timer starts whenever the robot runs.
+
+* Turning
+	- Turning has two modes that it constantly switches depending on the situation. Turning mode and Timed mode. Turning mode is the basis of this module. Whenever it does not detect a wall, it will go directly to the wall. If it does detect the wall, it will move at the opposite direction. Timed mode on the other hand is activated whenever it does not detect the wall for a period of time. When this happens, the current angle of the robot will turn 90 degrees until it detects the wall.
+
+* Counting
+	- This module, as the name applies, is used for counting. More specifically, the detection of the Orange and blue lines of the board. Whenever it detects these two colors, it will start a timer. The timer will count down as soon as it doesn't detect the lines. After the countdown, it will do a slight beep sound, signifying that the count is successful.
+
+* Display
+	- Used for displaying pixel numbers, timers, thresholds, etc. More generally used for debugging purposes
