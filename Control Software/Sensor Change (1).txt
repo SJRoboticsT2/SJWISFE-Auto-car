@@ -1,0 +1,173 @@
+import sensor, image, time, math, struct
+from pyb import UART,Timer
+from ColorRecognition import *
+from AIVision import faceDetection
+from patrolline import linePatrol
+from apriltag import *
+from sendUserData import *
+sensor.reset()
+sensor.set_pixformat(sensor.RGB565)
+sensor.set_framesize(sensor.QQVGA)
+sensor.set_auto_gain(False, gain_db=0) # gain in db
+sensor.set_auto_whitebal(False, rgb_gain_db = [0,0,0])
+sensor.set_auto_exposure(False, exposure_us=10000) # exposure in us
+sensor.set_contrast(0) # range -3 to +3
+sensor.set_brightness(2) # range -3 to +3
+sensor.set_saturation(0) # range -3 to +3
+
+sensor.__write_reg(0x0E, 0b00000000) # Disable night mode
+sensor.__write_reg(0x3E, 0b00000000) # Disable BLC
+
+sensor.__write_reg(0x2D, 0b00000000) # LSB Insert Dummy Rows (Set to Default 0x00)
+sensor.__write_reg(0x2E, 0b00000000) # MSB Insert Dummy Rows (Set to Default 0x00)
+
+sensor.__write_reg(0x35, 0b10000000) # AD Offset B Chan (Set to Default 0x80)
+sensor.__write_reg(0x36, 0b10000000) # AD Offset R Chan (Set to Default 0x80)
+sensor.__write_reg(0x37, 0b10000000) # AD Offset Gb Chan (Set to Default 0x80)
+sensor.__write_reg(0x38, 0b10000000) # AD Offset Gr Chan (Set to Default 0x80)
+
+sensor.__write_reg(0x39, 0b10000000) # B channel offset (Set to Default 0x80)
+sensor.__write_reg(0x3A, 0b10000000) # R channel offset (Set to Default 0x80)
+sensor.__write_reg(0x3B, 0b10000000) # Gb channel offset (Set to Default 0x80)
+sensor.__write_reg(0x3C, 0b10000000) # Gr channel offset (Set to Default 0x8
+sensor.skip_frames(10)
+uart = UART(3, 500000)
+uart.init(500000, bits=8, parity=None, stop=1, timeout=4,flow=0, timeout_char=1, read_buf_len=150)
+packetsize = 36
+dd=bytearray(packetsize)
+size = 0
+datalist = []
+modes = 0
+
+
+def byteToShort(lByte, hByte):
+    if ((hByte >> 7) & 1) == 1:
+        return ((hByte << 8) | lByte) - 65535
+    else:
+        return ((hByte << 8) | lByte)
+flag_color_gray = False
+flag_color_rgb565 = False
+flag_facedetection = False
+flag_linepatrol = False
+flag_color_rgb565_four = 0
+flag_apriltag = False
+
+def clearFlags():
+    global flag_color_gray
+    global flag_color_rgb565
+    global flag_facedetection
+    global flag_linepatrol
+    global flag_color_rgb565_four
+    global flag_apriltag
+    flag_color_gray = False
+    flag_color_rgb565 = False
+    flag_facedetection = False
+    flag_linepatrol = False
+    flag_color_rgb565_four = 0
+    flag_apriltag = False
+def case13():#扫码
+    global flag_apriltag
+    if dd[4] == 1:
+        flag_apriltag = True
+    else:
+        flag_apriltag = False
+def case14():#颜色识别
+    global flag_color_gray
+    if (dd[4] == 1):
+        flag_color_gray = True
+        setThreshold_gray(int(dd[6]) + (int(dd[7]) << 8), int(dd[8]) + (int(dd[9]) << 8))
+    else:
+        flag_color_gray = False
+def case17():
+    global flag_color_rgb565
+    if (dd[4] == 1):
+        flag_color_rgb565 = True
+        setThreshold_Rgb565(byteToShort(dd[6], dd[7]), byteToShort(dd[8], dd[9]), byteToShort(dd[10], dd[11]), byteToShort(dd[12], dd[13]), byteToShort(dd[14], dd[15]), byteToShort(dd[16], dd[17]), byteToShort(dd[18], dd[19]), byteToShort(dd[20], dd[21]), byteToShort(dd[22], dd[23]), byteToShort(dd[24], dd[25]))
+    else:
+        flag_color_rgb565 = False
+def case24():
+    global flag_facedetection
+    if (dd[4] == 1):
+        flag_facedetection = True
+    else:
+        flag_facedetection = False
+def case31():
+    global flag_linepatrol
+    if (dd[4] == 1):
+        flag_linepatrol = True
+    else:
+        flag_linepatrol = False
+def case40():
+    global flag_color_rgb565_four
+    if (dd[4] == 1):
+        flag_color_rgb565_four = flag_color_rgb565_four | (1 << dd[6])
+        setThreshold_Rgb565_four(dd[4], byteToShort(dd[6], dd[7]), byteToShort(dd[8], dd[9]), byteToShort(dd[10], dd[11]), byteToShort(dd[12], dd[13]), byteToShort(dd[14], dd[15]), byteToShort(dd[16], dd[17]), byteToShort(dd[18], dd[19]), byteToShort(dd[20], dd[21]), byteToShort(dd[22], dd[23]), byteToShort(dd[24], dd[25]), byteToShort(dd[26], dd[27]))
+    else:
+        flag_color_rgb565_four = flag_color_rgb565_four & (~(1 << dd[6]))
+def case100():
+    clearFlags()
+    clearRgb_four()
+def default():
+    print('No such case')
+
+
+switch = {
+          13: case13,
+          14: case14,
+          17: case17,
+          24: case24,
+          31: case31,
+          40: case40,
+          100: case100,
+          }
+def userData(datalist, img, time):
+      tempImg = img.to_grayscale(copy = True)
+      argslist = [0]*5
+      argslist[0] = time
+      print("userinfo:",argslist)
+      sendUserData(argslist, datalist)
+
+TimeProcess = 0
+while(True):
+    TimeProcess += 1.35
+    time = round(TimeProcess)
+    if (uart.any() >= packetsize):
+        size = uart.readinto(dd, packetsize)
+        switch.get(dd[2], default)()
+    img = sensor.snapshot()
+    modes = 0
+    datalist = []
+    datalist.append(0x55)
+    datalist.append(0xAA)
+    datalist.append(0)
+    datalist.append(0)
+    datalist.append(0)
+    datalist.append(0)
+    if (True == flag_apriltag):
+        scanAprilTag(datalist, img)
+        modes = modes | (1 << 7)
+    if (True == flag_color_gray):
+        findBlocks_gray(datalist, img)
+        modes = modes | (1 << 8)
+    if (True == flag_color_rgb565):
+        findBlocks_Rgb565(datalist, img)
+        modes = modes | (1 << 10)
+    if (True == flag_facedetection):
+        faceDetection(datalist, img)
+        modes = modes | (1 << 12)
+    if (True == flag_linepatrol):
+        linePatrol(datalist, img)
+        modes = modes | 0x2000
+    if (0 != flag_color_rgb565_four):
+        findBlocks_Rgb565_four(datalist, img)
+        modes = modes | (1 << 21)
+    userData(datalist, img, time)
+    modes = modes | (1 << 22)
+    ds = len(datalist)
+    if (ds > 6):
+        datalist[2] = modes & 0xFF
+        datalist[3] = (modes >> 8) & 0xFF
+        datalist[4] = (modes >> 16) & 0xFF
+        datalist[5] = (modes >> 24) & 0xFF
+        temppack = struct.pack("<%db" % ds, *datalist)
+        uart.write(temppack)
